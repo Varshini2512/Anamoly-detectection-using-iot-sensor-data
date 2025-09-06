@@ -114,4 +114,69 @@ plt.ylabel("Frequency")
 plt.title("Distribution of Reconstruction Errors")
 plt.legend()
 plt.show()
+import time
+
+# Benchmark the original TensorFlow model
+start_time = time.time()
+test_reconstructions_tf = autoencoder.predict(X_test)
+end_time = time.time()
+
+tf_inference_time = end_time - start_time
+
+print(f"TensorFlow model inference time on test set: {tf_inference_time:.4f} seconds")
+import tensorflow as tf
+import os
+
+# Define the directory to save the SavedModel
+saved_model_dir = "iot_lstm_autoencoder_savedmodel"
+
+# Export the model as a SavedModel
+autoencoder.export(saved_model_dir)
+
+# Convert to TFLite from the SavedModel
+converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
+tflite_model = converter.convert()
+
+# Save TFLite model
+with open("iot_lstm_autoencoder.tflite", "wb") as f:
+    f.write(tflite_model)
+
+print("✅ Model converted to TensorFlow Lite")
+Load TFLite model
+interpreter = tf.lite.Interpreter(model_path="iot_lstm_autoencoder.tflite")
+interpreter.allocate_tensors()
+
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+# Run inference on one sample
+sample = X_test[0:1].astype(np.float32)
+interpreter.set_tensor(input_details[0]['index'], sample)
+interpreter.invoke()
+output = interpreter.get_tensor(output_details[0]['index'])
+
+print("Original:", sample.flatten()[:5])
+print("Reconstructed:", output.flatten()[:5])
+import matplotlib.pyplot as plt
+import numpy as np # Import numpy for array manipulation
+
+# Assuming 'time_steps' was generated with the data in cell z8LShHluDMWD
+# Re-generating time steps here for plotting the full dataset
+time_steps = np.linspace(0, 50, len(X))
+
+plt.figure(figsize=(12, 5))
+# Plot data from the first sensor as an example
+plt.plot(time_steps, X[:, 0], label="Sensor 1 Data")
+# Scatter plot anomalies for the first sensor
+# Find time steps and sensor readings where anomaly is 1
+anomaly_time_steps = time_steps[y == 1]
+anomaly_sensor_data = X[y == 1, 0]
+plt.scatter(anomaly_time_steps, anomaly_sensor_data, color="red", label="Anomaly", zorder=5) # Use zorder to ensure dots are on top
+
+plt.title("Synthetic IoT Sensor Data - Anomaly Visualization")
+plt.xlabel("Time")
+plt.ylabel("Sensor 1 Reading")
+plt.legend()
+plt.grid(True)
+plt.show()
 
